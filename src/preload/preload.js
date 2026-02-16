@@ -10,5 +10,11 @@ contextBridge.exposeInMainWorld('api', {
     ping: () => 'pong',
 
     // Request the main process to quit the application
-    quit: () => ipcRenderer.send('app-quit')
+    quit: () => ipcRenderer.send('app-quit'),
+
+    // Request the main process to open a folder dialog and get media files
+    openFolder: () => ipcRenderer.invoke('open-folder-dialog'),
+
+    // Get media files from a specific folder
+    getMediaFromFolder: (folderPath) => ipcRenderer.invoke('get-media-from-folder', folderPath)
 });

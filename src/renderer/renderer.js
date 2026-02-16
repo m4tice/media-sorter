@@ -37,6 +37,25 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(() => btn.classList.remove('pressed'), 300);
     }
 
+    // Media file navigation
+    if (backBtn) {
+        backBtn.addEventListener('click', () => {
+            goToPreviousMedia();
+        });
+    }
+
+    if (keepBtn) {
+        keepBtn.addEventListener('click', () => {
+            goToNextMedia();
+        });
+    }
+
+    if (removeBtn) {
+        removeBtn.addEventListener('click', () => {
+            goToNextMedia();
+        });
+    }
+
     document.addEventListener('keydown', (ev) => {
         if (ev.repeat) return; // ignore held keys
         const k = ev.key.toLowerCase();
@@ -86,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // If About menu item was clicked, show About dialog
             if (item.id === 'about-menu-item') {
                 showAbout();
+            } else if (item.textContent.trim() === 'Open Folder') {
+                openFolderAndLoadMedia();
             } else {
                 console.log('Menu item clicked:', item.textContent.trim());
             }
@@ -98,6 +119,113 @@ document.addEventListener('DOMContentLoaded', () => {
     const aboutBackdrop = document.getElementById('about-backdrop');
     const aboutContent = document.getElementById('about-content');
     const aboutOk = document.getElementById('about-ok');
+
+    // --- Open Folder and display media files ---
+    const contentCont = document.getElementById('content-cont');
+    let currentFolderPath = null;
+    let mediaFiles = [];
+    let currentMediaIndex = 0;
+
+    async function openFolderAndLoadMedia() {
+        if (!window.api || typeof window.api.openFolder !== 'function') {
+            console.error('API not available');
+            return;
+        }
+
+        try {
+            // Show folder picker dialog
+            const folderPath = await window.api.openFolder();
+            if (!folderPath) {
+                console.log('Folder selection cancelled');
+                return;
+            }
+
+            currentFolderPath = folderPath;
+            const statusText = document.getElementById('status-text');
+            if (statusText) {
+                // Extract just the last folder name from the path
+                const folderName = folderPath.split(/[\\/]/).filter(Boolean).pop();
+                statusText.textContent = folderName;
+                statusText.title = folderPath; // Full path on hover
+            }
+
+            // Get media files from that folder
+            mediaFiles = await window.api.getMediaFromFolder(folderPath);
+            currentMediaIndex = 0;
+            displayCurrentMediaFile();
+        } catch (err) {
+            console.error('Error opening folder:', err);
+            if (contentCont) {
+                contentCont.innerHTML = '<p style="color: #d32f2f;">Error loading folder</p>';
+            }
+        }
+    }
+
+    function displayCurrentMediaFile() {
+        if (!contentCont) return;
+
+        if (mediaFiles.length === 0) {
+            contentCont.innerHTML = '<p style="color: #666; font-size: 14px;">No media files found</p>';
+            return;
+        }
+
+        const file = mediaFiles[currentMediaIndex];
+        const isImage = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg'].includes(file.ext.toLowerCase());
+
+        let mediaElement;
+        if (isImage) {
+            mediaElement = document.createElement('img');
+            mediaElement.src = file.path;
+            mediaElement.style.cssText = `
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+                border-radius: 4px;
+            `;
+            mediaElement.onerror = () => {
+                mediaElement.src = '';
+                mediaElement.textContent = 'Failed to load image';
+            };
+        } else {
+            // Video
+            mediaElement = document.createElement('video');
+            mediaElement.src = file.path;
+            mediaElement.controls = true;
+            mediaElement.style.cssText = `
+                max-width: 100%;
+                max-height: 100%;
+                object-fit: contain;
+                border-radius: 4px;
+                background: #000;
+            `;
+        }
+
+        // Create info div
+        const infoDiv = document.createElement('div');
+        infoDiv.style.cssText = `
+            font-size: 12px;
+            color: #666;
+            margin-top: 8px;
+            text-align: center;
+        `;
+        infoDiv.textContent = `${currentMediaIndex + 1} / ${mediaFiles.length} - ${file.name}`;
+
+        contentCont.innerHTML = '';
+        contentCont.appendChild(mediaElement);
+        contentCont.appendChild(infoDiv);
+    }
+
+    function goToPreviousMedia() {
+        if (mediaFiles.length === 0) return;
+        currentMediaIndex = (currentMediaIndex - 1 + mediaFiles.length) % mediaFiles.length;
+        displayCurrentMediaFile();
+    }
+
+    function goToNextMedia() {
+        if (mediaFiles.length === 0) return;
+        currentMediaIndex = (currentMediaIndex + 1) % mediaFiles.length;
+        displayCurrentMediaFile();
+    }
 
     // Template for about information — edit these values as desired
     const aboutTemplate = {
