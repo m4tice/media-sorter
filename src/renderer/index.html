@@ -20,7 +20,7 @@
 				<button class="menu-item" role="menuitem">New Session</button>
 				<button class="menu-item" role="menuitem">Open Folder</button>
 				<button class="menu-item" role="menuitem">Preferences</button>
-				<button class="menu-item" role="menuitem">About</button>
+				<button id="about-menu-item" class="menu-item" role="menuitem">About</button>
 			</div>
 			<div id="status-text">Directory</div>
 			<button id="shutdown-btn" class="status-btn"><i class="bi bi-power"></i></button>
@@ -30,6 +30,19 @@
 			<button id="remove-btn" class="btn"><i class="bi bi-x-lg"></i></button>
 			<button id="back-btn" class="btn"><i class="bi bi-arrow-counterclockwise"></i></button>
 			<button id="keep-btn" class="btn"><i class="bi bi-check-lg"></i></button>
+		</div>
+	</div>
+
+	<!-- About modal/backdrop -->
+	<div id="about-backdrop" class="about-backdrop" hidden>
+		<div class="about-box" role="dialog" aria-modal="true" aria-labelledby="about-title">
+			<h3 id="about-title">About</h3>
+			<div id="about-content" class="about-content">
+				<!-- Populated by renderer.js -->
+			</div>
+			<div class="about-actions">
+				<button id="about-ok" class="about-ok">OK</button>
+			</div>
 		</div>
 	</div>
 

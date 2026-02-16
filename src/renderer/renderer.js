@@ -83,10 +83,72 @@ document.addEventListener('DOMContentLoaded', () => {
             e.stopPropagation();
             const item = e.target.closest('.menu-item');
             if (!item) return;
-            // Placeholder actions for the menu items
-            console.log('Menu item clicked:', item.textContent.trim());
+            // If About menu item was clicked, show About dialog
+            if (item.id === 'about-menu-item') {
+                showAbout();
+            } else {
+                console.log('Menu item clicked:', item.textContent.trim());
+            }
             menuDropdown.classList.remove('show');
             menuDropdown.setAttribute('aria-hidden', 'true');
         });
     }
+
+    // --- About dialog implementation ---
+    const aboutBackdrop = document.getElementById('about-backdrop');
+    const aboutContent = document.getElementById('about-content');
+    const aboutOk = document.getElementById('about-ok');
+
+    // Template for about information — edit these values as desired
+    const aboutTemplate = {
+        appName: 'Media Sorter',
+        version: '1.0.0',
+        author: 'TUAN, Nguyen Duc',
+        description: 'Quickly review and sort media files with keyboard shortcuts.',
+        website: 'https://github.com/m4tice/media-sorter',
+        license: 'MIT License'
+    };
+
+    function renderAbout(info) {
+        const parts = [];
+        parts.push(`<p><strong>${info.appName}</strong> — version ${info.version}</p>`);
+        if (info.author) parts.push(`<p>Author: ${info.author}</p>`);
+        if (info.description) parts.push(`<p>${info.description}</p>`);
+        if (info.website) parts.push(`<p>Website: <a href="${info.website}" target="_blank" rel="noopener noreferrer">${info.website}</a></p>`);
+        if (info.license) parts.push(`<p>License: ${info.license}</p>`);
+        return parts.join('\n');
+    }
+
+    function showAbout() {
+        if (!aboutBackdrop || !aboutContent) return;
+        aboutContent.innerHTML = renderAbout(aboutTemplate);
+        aboutBackdrop.removeAttribute('hidden');
+        // focus OK button for accessibility
+        if (aboutOk) aboutOk.focus();
+    }
+
+    function hideAbout() {
+        if (!aboutBackdrop) return;
+        aboutBackdrop.setAttribute('hidden', '');
+    }
+
+    if (aboutOk) {
+        aboutOk.addEventListener('click', () => {
+            hideAbout();
+        });
+    }
+
+    // Close when clicking backdrop outside the box
+    if (aboutBackdrop) {
+        aboutBackdrop.addEventListener('click', (ev) => {
+            if (ev.target === aboutBackdrop) hideAbout();
+        });
+    }
+
+    // Close on Escape key when about is visible
+    document.addEventListener('keydown', (ev) => {
+        if (ev.key === 'Escape' && aboutBackdrop && !aboutBackdrop.hasAttribute('hidden')) {
+            hideAbout();
+        }
+    });
 });
