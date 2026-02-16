@@ -1,6 +1,6 @@
 {
 	"name": "electron-boilerplate",
-	"version": "1.0.2",
+	"version": "1.0.3",
 	"description": "A minimal Electron boilerplate starter",
 	"main": "src/main/main.js",
 	"scripts": {
@@ -28,7 +28,9 @@
 	"build": {
 		"appId": "com.electron.boilerplate",
 		"files": [
-			"src/**"
+			"src/**",
+			"node_modules/**",
+			"package.json"
 		],
 		"mac": {
 			"target": [
