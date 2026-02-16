@@ -1,7 +1,4 @@
-ipcMain.handle('read-file', async (event, path) => {
-# Electron Boilerplate
-
-Minimal Electron starter. For developer-oriented details see the linked docs.
+# Media Sorter (based on [Electron Boilerplate](https://github.com/m4tice/nodejs-project-tpl))
 
 Quick Start
 
@@ -39,4 +36,3 @@ README.md
 ```
 
 That's it — see `CI-CD.md` for advanced build/CI instructions and `CONTRIBUTING.md` for workflow rules.
-
