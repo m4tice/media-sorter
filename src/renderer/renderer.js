@@ -480,12 +480,20 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function undoRemoveMedia() {
-        if (removedFiles.length === 0) {
-            console.log('Nothing to undo');
-            return;
-        }
-        removedFiles.pop();
-        console.log('Undo - Remaining removed files:', removedFiles.length);
+        if (mediaFiles.length === 0) return;
+        
+        // Go back one index
+        currentMediaIndex = (currentMediaIndex - 1 + mediaFiles.length) % mediaFiles.length;
+        
+        // Get the current file path
+        const currentFile = mediaFiles[currentMediaIndex];
+        const currentPath = currentFile.path;
+        
+        // Remove it from the removedFiles array if it's there
+        removedFiles = removedFiles.filter(path => path !== currentPath);
+        
+        console.log('Undo - File removed from tracking:', currentPath);
+        displayCurrentMediaFile();
     }
 
     // Template for about information — edit these values as desired
