@@ -28,5 +28,7 @@ contextBridge.exposeInMainWorld('api', {
     openJsonFile: () => ipcRenderer.invoke('open-json-file-dialog'),
 
     // Delete files in batch (array of file paths)
-    deleteFiles: (filePaths) => ipcRenderer.invoke('delete-files', filePaths)
+    deleteFiles: (filePaths) => ipcRenderer.invoke('delete-files', filePaths),
+    // Check which files exist on disk
+    checkFilesExist: (filePaths) => ipcRenderer.invoke('check-files-exist', filePaths)
 });

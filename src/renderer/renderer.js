@@ -217,8 +217,34 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Step 4: Run the job with progress
-            await runDeletionJob(jobData.removedFiles);
+            // Normalize paths to be tolerant of escape issues and mixed slashes
+            function normalizePath(p) {
+                if (typeof p !== 'string') return p;
+                let s = p.trim();
+                s = s.replace(/\u0000/g, '');
+                s = s.replace(/[\u0000-\u001F]/g, '');
+                s = s.replace(/^file:\/\//i, '');
+                s = s.replace(/\\+/g, '/');
+                s = s.replace(/\/+/g, '/');
+                try { s = decodeURI(s); } catch (e) { /* ignore */ }
+                return s;
+            }
+
+            const normalizedPaths = jobData.removedFiles.map(normalizePath);
+
+            // Validate files exist before attempting deletion
+            if (window.api && typeof window.api.checkFilesExist === 'function') {
+                const existsResults = await window.api.checkFilesExist(normalizedPaths);
+                const missing = existsResults.filter(r => !r.exists && !r.resolvedExists && !r.altExists);
+                if (missing.length > 0) {
+                    const sample = missing.slice(0, 6).map(m => m.path).join('\n');
+                    await showErrorDialog('Missing files', `${missing.length} files listed in the job were not found on disk.\nFirst missing files:\n${sample}\n\nAborting job.`);
+                    return;
+                }
+            }
+
+            // Step 4: Run the job with progress using normalized paths
+            await runDeletionJob(normalizedPaths);
         } catch (err) {
             console.error('Error in runJobFlow:', err);
             await showErrorDialog('Error', `An unexpected error occurred: ${err.message}`);

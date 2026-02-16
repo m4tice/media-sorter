@@ -115,24 +115,78 @@ ipcMain.handle('open-json-file-dialog', async () => {
 
 /**
  * Handle deleting files in batch
+ * Uses trash package for cross-platform Recycle/Trash support
  */
 ipcMain.handle('delete-files', async (event, filePaths) => {
     const results = [];
-    for (const filepath of filePaths) {
+    
+    // Dynamic import for ESM package
+    const { default: trash } = await import('trash');
+    
+    // Normalize paths and filter existing files
+    const existingPaths = [];
+    const pathMap = {}; // Track original -> normalized
+    
+    for (const originalPath of filePaths) {
         try {
-            if (fs.existsSync(filepath)) {
-                // Move to OS trash/recycle bin
-                const moved = shell.moveItemToTrash(filepath);
-                if (moved) {
-                    results.push({ path: filepath, success: true });
-                } else {
-                    results.push({ path: filepath, success: false, error: 'Failed to move to Trash' });
-                }
+            const normalized = path.normalize(originalPath);
+            if (fs.existsSync(normalized)) {
+                existingPaths.push(normalized);
+                pathMap[normalized] = originalPath;
             } else {
-                results.push({ path: filepath, success: false, error: 'File not found' });
+                results.push({ path: originalPath, success: false, error: 'File not found' });
             }
         } catch (err) {
-            results.push({ path: filepath, success: false, error: err.message });
+            results.push({ path: originalPath, success: false, error: err.message });
+        }
+    }
+    
+    // Move all existing files to trash in one call
+    if (existingPaths.length > 0) {
+        try {
+            await trash(existingPaths);
+            // All succeeded if no exception thrown
+            for (const normalizedPath of existingPaths) {
+                const originalPath = pathMap[normalizedPath];
+                results.push({ path: originalPath, success: true });
+            }
+        } catch (err) {
+            // If batch fails, report each as failed
+            for (const normalizedPath of existingPaths) {
+                const originalPath = pathMap[normalizedPath];
+                results.push({ path: originalPath, success: false, error: err.message });
+            }
+        }
+    }
+    
+    return results;
+});
+
+/**
+ * Check which files exist on disk
+ */
+ipcMain.handle('check-files-exist', async (event, filePaths) => {
+    const results = [];
+    for (const filepath of filePaths) {
+        try {
+            const exists = fs.existsSync(filepath);
+            // try resolved path
+            const resolved = path.resolve(filepath);
+            const resolvedExists = fs.existsSync(resolved);
+            // try with forward slashes
+            const alt = filepath.replace(/\\/g, '/');
+            const altExists = fs.existsSync(alt);
+
+            results.push({
+                path: filepath,
+                exists,
+                resolved,
+                resolvedExists,
+                alt,
+                altExists
+            });
+        } catch (err) {
+            results.push({ path: filepath, exists: false, error: err.message });
         }
     }
     return results;
