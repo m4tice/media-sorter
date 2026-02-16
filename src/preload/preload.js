@@ -16,5 +16,11 @@ contextBridge.exposeInMainWorld('api', {
     openFolder: () => ipcRenderer.invoke('open-folder-dialog'),
 
     // Get media files from a specific folder
-    getMediaFromFolder: (folderPath) => ipcRenderer.invoke('get-media-from-folder', folderPath)
+    getMediaFromFolder: (folderPath) => ipcRenderer.invoke('get-media-from-folder', folderPath),
+
+    // Save removed files to JSON
+    saveRemovedFilesJson: (data, filename) => ipcRenderer.invoke('save-removed-files-json', data, filename),
+
+    // Get home directory
+    getHomeDir: () => ipcRenderer.invoke('get-home-dir')
 });

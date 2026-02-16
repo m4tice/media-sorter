@@ -279,3 +279,85 @@ html, body {
 .about-ok:active {
     transform: translateY(1px);
 }
+
+/* Export dialog styles */
+.export-backdrop {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(13, 22, 30, 0.45);
+    z-index: 1000;
+}
+
+.export-box {
+    width: min(520px, 92%);
+    max-width: 720px;
+    background: #dce8ec;
+    border-radius: 12px;
+    padding: 18px;
+    box-shadow: 12px 12px 24px rgba(163,177,198,0.35), -8px -8px 16px rgba(255,255,255,0.8);
+    color: #2d3748;
+}
+
+.export-box h3 {
+    margin: 0 0 12px 0;
+    font-size: 18px;
+}
+
+.export-message {
+    font-size: 14px;
+    margin: 0 0 8px 0;
+}
+
+.export-details {
+    font-size: 13px;
+    margin: 0 0 12px 0;
+    color: #555;
+}
+
+.export-actions {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+}
+
+.export-btn {
+    border: none;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.2s ease;
+}
+
+.export-btn-primary {
+    background-color: #2d3e50;
+    color: #ffffff;
+    box-shadow: 4px 4px 8px rgba(0,0,0,0.12);
+}
+
+.export-btn-primary:hover {
+    filter: brightness(1.05);
+}
+
+.export-btn-primary:active {
+    transform: translateY(1px);
+}
+
+.export-btn-secondary {
+    background-color: #dce8ec;
+    color: #4a5568;
+    border: 1px solid #b0c4d4;
+    box-shadow: 2px 2px 4px rgba(163,177,198,0.2);
+}
+
+.export-btn-secondary:hover {
+    background-color: #e8f0f4;
+}
+
+.export-btn-secondary:active {
+    transform: translateY(1px);
+}

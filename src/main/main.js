@@ -60,6 +60,36 @@ ipcMain.handle('open-folder-dialog', async () => {
 });
 
 /**
+ * Handle saving removed files to JSON
+ */
+ipcMain.handle('save-removed-files-json', async (event, data, filename) => {
+    try {
+        // Default target folder: user's Downloads/MediaSorter
+        const downloadsDir = app.getPath('downloads');
+        const targetDir = path.join(downloadsDir, 'MediaSorter');
+
+        // Ensure target directory exists
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        const filepath = path.join(targetDir, filename);
+        fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+        return { success: true, path: filepath };
+    } catch (err) {
+        console.error('Error saving JSON:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Handle getting home directory
+ */
+ipcMain.handle('get-home-dir', async () => {
+    return app.getPath('documents');
+});
+
+/**
  * Handle media file discovery from a given folder
  */
 ipcMain.handle('get-media-from-folder', async (event, folderPath) => {

@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Media file navigation
     if (backBtn) {
         backBtn.addEventListener('click', () => {
-            goToPreviousMedia();
+            undoRemoveMedia();
         });
     }
 
@@ -52,7 +52,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (removeBtn) {
         removeBtn.addEventListener('click', () => {
-            goToNextMedia();
+            removeCurrentMedia();
         });
     }
 
@@ -120,11 +120,90 @@ document.addEventListener('DOMContentLoaded', () => {
     const aboutContent = document.getElementById('about-content');
     const aboutOk = document.getElementById('about-ok');
 
+    // --- Export dialog implementation ---
+    const exportBackdrop = document.getElementById('export-backdrop');
+    const exportExportBtn = document.getElementById('export-export-btn');
+    const exportDiscardBtn = document.getElementById('export-discard-btn');
+
+    function showExportDialog() {
+        if (!exportBackdrop) return;
+        // Update the count display
+        const countElement = document.getElementById('export-count');
+        if (countElement) {
+            countElement.textContent = removedFiles.length;
+        }
+        exportBackdrop.removeAttribute('hidden');
+        if (exportExportBtn) exportExportBtn.focus();
+    }
+
+    function hideExportDialog() {
+        if (!exportBackdrop) return;
+        exportBackdrop.setAttribute('hidden', '');
+    }
+
+    if (exportExportBtn) {
+        exportExportBtn.addEventListener('click', async () => {
+            // Generate filename with timestamp
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+            const folderName = currentFolderPath.split(/[\\/]/).filter(Boolean).pop();
+            const filename = `${folderName}_${timestamp}.json`;
+
+            // Prepare data to export
+            const exportData = {
+                folder: currentFolderPath,
+                timestamp: new Date().toISOString(),
+                removedFiles: removedFiles,
+                totalFiles: mediaFiles.length,
+                removedCount: removedFiles.length
+            };
+
+            try {
+                const result = await window.api.saveRemovedFilesJson(exportData, filename);
+                if (result.success) {
+                    console.log('Exported to:', result.path);
+                    hideExportDialog();
+                    // Reset for next session
+                    removedFiles = [];
+                    mediaFiles = [];
+                    currentMediaIndex = 0;
+                    if (contentCont) {
+                        contentCont.innerHTML = '<p style="color: #666; font-size: 14px;">Exported successfully. Open a new folder to continue.</p>';
+                    }
+                } else {
+                    console.error('Export failed:', result.error);
+                }
+            } catch (err) {
+                console.error('Error exporting:', err);
+            }
+        });
+    }
+
+    if (exportDiscardBtn) {
+        exportDiscardBtn.addEventListener('click', () => {
+            hideExportDialog();
+            // Clear data without exporting
+            removedFiles = [];
+            mediaFiles = [];
+            currentMediaIndex = 0;
+            if (contentCont) {
+                contentCont.innerHTML = '<p style="color: #666; font-size: 14px;">Discarded. Open a new folder to continue.</p>';
+            }
+        });
+    }
+
+    // Close export dialog by clicking backdrop
+    if (exportBackdrop) {
+        exportBackdrop.addEventListener('click', (ev) => {
+            if (ev.target === exportBackdrop) hideExportDialog();
+        });
+    }
+
     // --- Open Folder and display media files ---
     const contentCont = document.getElementById('content-cont');
     let currentFolderPath = null;
     let mediaFiles = [];
     let currentMediaIndex = 0;
+    let removedFiles = []; // Track removed file paths
 
     async function openFolderAndLoadMedia() {
         if (!window.api || typeof window.api.openFolder !== 'function') {
@@ -224,7 +303,31 @@ document.addEventListener('DOMContentLoaded', () => {
     function goToNextMedia() {
         if (mediaFiles.length === 0) return;
         currentMediaIndex = (currentMediaIndex + 1) % mediaFiles.length;
-        displayCurrentMediaFile();
+        
+        // Check if we've cycled back to the start (end of cycle)
+        if (currentMediaIndex === 0) {
+            displayCurrentMediaFile();
+            showExportDialog();
+        } else {
+            displayCurrentMediaFile();
+        }
+    }
+
+    function removeCurrentMedia() {
+        if (mediaFiles.length === 0) return;
+        const currentFile = mediaFiles[currentMediaIndex];
+        removedFiles.push(currentFile.path);
+        console.log('Removed:', currentFile.path);
+        goToNextMedia();
+    }
+
+    function undoRemoveMedia() {
+        if (removedFiles.length === 0) {
+            console.log('Nothing to undo');
+            return;
+        }
+        removedFiles.pop();
+        console.log('Undo - Remaining removed files:', removedFiles.length);
     }
 
     // Template for about information — edit these values as desired
