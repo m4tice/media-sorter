@@ -103,7 +103,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const aboutTemplate = {
         appName: 'Media Sorter',
         version: '1.0.0',
-        author: 'TUAN, Nguyen Duc',
+        author: '<strong>TUAN</strong>, Nguyen Duc',
         description: 'Quickly review and sort media files with keyboard shortcuts.',
         website: 'https://github.com/m4tice/media-sorter',
         license: 'MIT License'
@@ -112,10 +112,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderAbout(info) {
         const parts = [];
         parts.push(`<p><strong>${info.appName}</strong> — version ${info.version}</p>`);
-        if (info.author) parts.push(`<p>Author: ${info.author}</p>`);
+        if (info.author) parts.push(`<p><i>Author:</i> ${info.author}</p>`);
         if (info.description) parts.push(`<p>${info.description}</p>`);
-        if (info.website) parts.push(`<p>Website: <a href="${info.website}" target="_blank" rel="noopener noreferrer">${info.website}</a></p>`);
-        if (info.license) parts.push(`<p>License: ${info.license}</p>`);
+        if (info.website) parts.push(`<p><i>Website:</i> <a href="${info.website}" target="_blank" rel="noopener noreferrer">${info.website}</a></p>`);
+        if (info.license) parts.push(`<p><i>License:</i> ${info.license}</p>`);
         return parts.join('\n');
     }
 

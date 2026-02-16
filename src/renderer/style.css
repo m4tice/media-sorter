@@ -260,6 +260,8 @@ html, body {
 }
 
 .about-ok {
+    height: 44px;
+    width: 176px;
     background-color: #2d3e50;
     color: #ffffff;
     border: none;
