@@ -1,0 +1,76 @@
+name: Build Electron App
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build-mac:
+    name: Build macOS
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Lint (optional)
+        run: npm run lint --if-present
+      
+      - name: Build macOS app
+        run: npm run build -- --mac --publish=never
+      
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-app-macos-node${{ matrix.node-version }}
+          path: dist/*.dmg
+          if-no-files-found: ignore
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: npm install
+      
+      - name: Build Windows app
+        run: npm run build -- --win --publish=never
+      
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-app-windows-node${{ matrix.node-version }}
+          path: |
+            dist/*.exe
+            dist/*.zip
+          if-no-files-found: ignore
+
+  # Release publishing is handled in .github/workflows/release.yml

@@ -1,0 +1,83 @@
+name: Release Electron App
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch: {}
+
+jobs:
+  build-mac:
+    name: Build macOS
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build macOS app
+        run: npm run build -- --mac --publish=never
+
+      - name: Upload macOS artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-release-macos
+          path: dist/*.dmg
+          if-no-files-found: ignore
+
+  build-windows:
+    name: Build Windows
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '20.x'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build Windows app
+        run: npm run build -- --win --publish=never
+
+      - name: Upload Windows artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: electron-release-windows
+          path: |
+            dist/*.exe
+            dist/*.zip
+          if-no-files-found: ignore
+
+  publish-release:
+    name: Publish Release
+    needs: [build-mac, build-windows]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create GitHub Release and upload files
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            electron-release-macos/*.dmg
+            electron-release-windows/*.exe
+            electron-release-windows/*.zip
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

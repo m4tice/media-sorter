@@ -1,0 +1,221 @@
+html, body {
+    height: 100%;
+    margin: 0;
+    box-sizing: border-box;
+    background: linear-gradient(135deg, #d4e4e8 0%, #c8d8dd 100%);
+}
+
+#container-parent {
+    display: grid;
+    grid-template-columns: 1fr;
+    grid-template-rows: 40px 1fr 80px;
+    grid-column-gap: 0px;
+    grid-row-gap: 10px;
+    height: 100vh;
+    width: 100vw;
+    min-width: 350px;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+#status-cont {
+    grid-area: 1 / 1 / 2 / 2;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0px;
+    /* background-color: blue; */
+}
+
+/* make status container a positioning context for the dropdown */
+#status-cont {
+    position: relative;
+}
+
+#status-text {
+    flex: 1;
+    text-align: center;
+    padding: 10px;
+    color: #2d3748;
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.status-btn {
+    background-color: #dce8ec;
+    color: #4a5568;
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    cursor: pointer;
+    font-size: 18px;
+    font-weight: bold;
+    margin: 0 10px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    box-shadow: 
+        4px 4px 8px rgba(163, 177, 198, 0.4),
+        -4px -4px 8px rgba(255, 255, 255, 0.8);
+    transition: all 0.18s ease;
+}
+
+.status-btn:hover {
+    box-shadow: 
+        3px 3px 6px rgba(163, 177, 198, 0.4),
+        -3px -3px 6px rgba(255, 255, 255, 0.8);
+}
+
+.status-btn:active {
+    box-shadow: 
+        inset 2px 2px 4px rgba(163, 177, 198, 0.4),
+        inset -2px -2px 4px rgba(255, 255, 255, 0.8);
+    background-color: #2d3e50;
+    color: #ffffff;
+}
+
+.status-btn i {
+    display: inline-block;
+    line-height: 1;
+    font-size: 18px;
+    transform: translateY(0);
+}
+
+/* Dropdown menu styles */
+.menu-dropdown {
+    position: absolute;
+    top: 48px; /* below the status bar */
+    left: 10px;
+    min-width: 180px;
+    background: #dce8ec;
+    border-radius: 10px;
+    box-shadow: 8px 8px 16px rgba(163,177,198,0.35), -8px -8px 16px rgba(255,255,255,0.8);
+    padding: 8px;
+    display: none;
+    flex-direction: column;
+    gap: 6px;
+    z-index: 40;
+}
+
+.menu-dropdown.show {
+    display: flex;
+}
+
+.menu-item {
+    background: transparent;
+    border: none;
+    padding: 8px 12px;
+    text-align: left;
+    border-radius: 8px;
+    color: #2d3748;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.menu-item:hover {
+    background: rgba(45,62,80,0.06);
+}
+
+#menu-btn {
+    margin-left: 0px;
+    margin-right: auto;
+}
+
+#shutdown-btn {
+    margin-right: 0px;
+    margin-left: auto;
+}
+
+#content-cont {
+    grid-area: 2 / 1 / 3 / 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 10px;
+    overflow: auto;
+    background: #dce8ec;
+    border-radius: 24px;
+    box-shadow: 
+        8px 8px 16px rgba(163, 177, 198, 0.4),
+        -8px -8px 16px rgba(255, 255, 255, 0.8);
+}
+
+#buttons-group-cont {
+    grid-area: 3 / 1 / 4 / 2;
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    gap: 40px;
+    flex-wrap: wrap;
+    /* background-color: red; */
+}
+
+.btn {
+    border-radius: 50% !important;
+    padding: 12px !important;
+    font-size: 24px !important;
+    font-weight: bold !important;
+    width: 64px !important;
+    height: 64px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    background: #dce8ec !important;
+    color: #4a5568 !important;
+    border: none !important;
+    cursor: pointer !important;
+    box-shadow: 
+        6px 6px 12px rgba(163, 177, 198, 0.4),
+        -6px -6px 12px rgba(255, 255, 255, 0.8) !important;
+    transition: all 0.3s ease !important;
+}
+
+.btn:hover {
+    box-shadow: 
+        4px 4px 8px rgba(163, 177, 198, 0.4),
+        -4px -4px 8px rgba(255, 255, 255, 0.8) !important;
+    background: #dce8ec !important;
+    color: #4a5568 !important;
+    border: none !important;
+}
+
+.btn:active {
+    box-shadow: 
+        inset 4px 4px 8px rgba(163, 177, 198, 0.4),
+        inset -4px -4px 8px rgba(255, 255, 255, 0.8) !important;
+    background-color: #2d3e50 !important;
+    color: #ffffff !important;
+    border: none !important;
+}
+
+/* programmatic press state to mirror :active visual for keyboard shortcuts */
+.btn.pressed {
+    box-shadow: 
+        inset 4px 4px 8px rgba(163, 177, 198, 0.4),
+        inset -4px -4px 8px rgba(255, 255, 255, 0.8) !important;
+    background-color: #2d3e50 !important;
+    color: #ffffff !important;
+    transform: translateY(1px) scale(0.995) !important;
+    border: none !important;
+}
+
+.btn:focus,
+.btn:focus-visible {
+    outline: none !important;
+}
+
+.btn i {
+    font-size: 28px;
+    font-weight: bold;
+}
