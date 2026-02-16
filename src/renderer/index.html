@@ -17,7 +17,7 @@
 			<button id="menu-btn" class="status-btn">☰</button>
 			<!-- Menu dropdown (hidden by default) -->
 			<div id="menu-dropdown" class="menu-dropdown" role="menu" aria-hidden="true">
-				<button class="menu-item" role="menuitem">New Session</button>
+				<button id="run-job-menu-item" class="menu-item" role="menuitem">Run Job</button>
 				<button class="menu-item" role="menuitem">Open Folder</button>
 				<button class="menu-item" role="menuitem">Preferences</button>
 				<button id="about-menu-item" class="menu-item" role="menuitem">About</button>
@@ -56,6 +56,18 @@
 				<button id="export-export-btn" class="export-btn export-btn-primary">Export to JSON</button>
 				<button id="export-discard-btn" class="export-btn export-btn-secondary">Discard</button>
 			</div>
+		</div>
+	</div>
+
+	<!-- Progress dialog/backdrop -->
+	<div id="progress-backdrop" class="progress-backdrop" hidden>
+		<div class="progress-box" role="dialog" aria-modal="true" aria-labelledby="progress-title">
+			<h3 id="progress-title">Running Job</h3>
+			<p class="progress-message">Processing files...</p>
+			<div class="progress-bar-container">
+				<div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+			</div>
+			<p class="progress-counter"><span id="progress-current">0</span> / <span id="progress-total">0</span></p>
 		</div>
 	</div>
 

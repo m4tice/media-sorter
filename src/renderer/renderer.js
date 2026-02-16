@@ -105,6 +105,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // If About menu item was clicked, show About dialog
             if (item.id === 'about-menu-item') {
                 showAbout();
+            } else if (item.id === 'run-job-menu-item') {
+                runJobFlow();
             } else if (item.textContent.trim() === 'Open Folder') {
                 openFolderAndLoadMedia();
             } else {
@@ -113,6 +115,162 @@ document.addEventListener('DOMContentLoaded', () => {
             menuDropdown.classList.remove('show');
             menuDropdown.setAttribute('aria-hidden', 'true');
         });
+    }
+
+    // --- Error/Alert dialog implementation ---
+    function showErrorDialog(title, message) {
+        return new Promise((resolve) => {
+            const backdrop = document.createElement('div');
+            backdrop.className = 'error-backdrop';
+            backdrop.style.cssText = `
+                position: fixed;
+                inset: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                background: rgba(13, 22, 30, 0.45);
+                z-index: 1001;
+            `;
+
+            const box = document.createElement('div');
+            box.className = 'error-box';
+            box.style.cssText = `
+                width: min(520px, 92%);
+                max-width: 720px;
+                background: #dce8ec;
+                border-radius: 12px;
+                padding: 18px;
+                box-shadow: 12px 12px 24px rgba(163,177,198,0.35), -8px -8px 16px rgba(255,255,255,0.8);
+                color: #2d3748;
+            `;
+
+            const titleEl = document.createElement('h3');
+            titleEl.textContent = title;
+            titleEl.style.cssText = 'margin: 0 0 12px 0; font-size: 18px; color: #d32f2f;';
+            box.appendChild(titleEl);
+
+            const msgEl = document.createElement('p');
+            msgEl.textContent = message;
+            msgEl.style.cssText = 'margin: 0 0 16px 0; font-size: 14px; line-height: 1.5;';
+            box.appendChild(msgEl);
+
+            const btn = document.createElement('button');
+            btn.textContent = 'OK';
+            btn.style.cssText = `
+                background-color: #2d3e50;
+                color: #ffffff;
+                border: none;
+                padding: 8px 14px;
+                border-radius: 8px;
+                cursor: pointer;
+                font-weight: 600;
+                box-shadow: 4px 4px 8px rgba(0,0,0,0.12);
+            `;
+            btn.onmouseover = () => btn.style.filter = 'brightness(1.05)';
+            btn.onmouseout = () => btn.style.filter = 'brightness(1)';
+            btn.onclick = () => {
+                document.body.removeChild(backdrop);
+                resolve();
+            };
+            box.appendChild(btn);
+
+            backdrop.appendChild(box);
+            document.body.appendChild(backdrop);
+            btn.focus();
+        });
+    }
+
+    // --- Run Job functionality ---
+    async function runJobFlow() {
+        if (!window.api || typeof window.api.openJsonFile !== 'function') {
+            await showErrorDialog('Error', 'API not available');
+            return;
+        }
+
+        try {
+            // Step 1: Open file picker for JSON
+            const jsonPath = await window.api.openJsonFile();
+            if (!jsonPath) {
+                console.log('JSON selection cancelled');
+                return;
+            }
+
+            // Step 2: Read and validate JSON
+            const jsonContent = await readFileAsText(jsonPath);
+            let jobData;
+            try {
+                jobData = JSON.parse(jsonContent);
+            } catch (err) {
+                await showErrorDialog('Invalid JSON', `Failed to parse JSON file: ${err.message}`);
+                return;
+            }
+
+            // Step 3: Validate required fields
+            if (!jobData.removedFiles || !Array.isArray(jobData.removedFiles)) {
+                await showErrorDialog('Invalid Job File', 'The JSON file does not contain a valid "removedFiles" array.');
+                return;
+            }
+
+            const fileCount = jobData.removedFiles.length;
+            if (fileCount === 0) {
+                await showErrorDialog('No Files', 'The job file does not contain any files to remove.');
+                return;
+            }
+
+            // Step 4: Run the job with progress
+            await runDeletionJob(jobData.removedFiles);
+        } catch (err) {
+            console.error('Error in runJobFlow:', err);
+            await showErrorDialog('Error', `An unexpected error occurred: ${err.message}`);
+        }
+    }
+
+    function readFileAsText(filepath) {
+        return new Promise((resolve, reject) => {
+            // Use fetch with file:// protocol (works in Electron)
+            fetch(`file://${filepath}`)
+                .then(res => res.text())
+                .then(resolve)
+                .catch(reject);
+        });
+    }
+
+    async function runDeletionJob(filePaths) {
+        const progressBackdrop = document.getElementById('progress-backdrop');
+        const progressBar = document.getElementById('progress-bar');
+        const progressCurrent = document.getElementById('progress-current');
+        const progressTotal = document.getElementById('progress-total');
+
+        if (!progressBackdrop) return;
+
+        const total = filePaths.length;
+        progressTotal.textContent = total;
+        progressBackdrop.removeAttribute('hidden');
+
+        try {
+            // Delete files with progress updates
+            const results = await window.api.deleteFiles(filePaths);
+
+            let successCount = 0;
+            results.forEach((result, index) => {
+                if (result.success) successCount++;
+                const percent = ((index + 1) / total) * 100;
+                progressCurrent.textContent = index + 1;
+                progressBar.style.width = percent + '%';
+            });
+
+            progressBackdrop.setAttribute('hidden', '');
+
+            const failedCount = total - successCount;
+            const message = failedCount > 0
+                ? `${successCount} files deleted successfully.\n${failedCount} files could not be deleted.`
+                : `All ${total} files deleted successfully!`;
+
+            await showErrorDialog('Job Complete', message);
+        } catch (err) {
+            progressBackdrop.setAttribute('hidden', '');
+            await showErrorDialog('Error', `Failed to delete files: ${err.message}`);
+        }
     }
 
     // --- About dialog implementation ---

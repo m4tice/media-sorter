@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -87,6 +87,55 @@ ipcMain.handle('save-removed-files-json', async (event, data, filename) => {
  */
 ipcMain.handle('get-home-dir', async () => {
     return app.getPath('documents');
+});
+
+/**
+ * Handle opening JSON file dialog
+ */
+ipcMain.handle('open-json-file-dialog', async () => {
+    const mainWindow = BrowserWindow.getFocusedWindow();
+    if (!mainWindow) return null;
+
+    const downloadsDir = app.getPath('downloads');
+    const result = await dialog.showOpenDialog(mainWindow, {
+        defaultPath: path.join(downloadsDir, 'MediaSorter'),
+        filters: [
+            { name: 'JSON Files', extensions: ['json'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+    });
+
+    if (result.canceled || result.filePaths.length === 0) {
+        return null;
+    }
+
+    return result.filePaths[0];
+});
+
+/**
+ * Handle deleting files in batch
+ */
+ipcMain.handle('delete-files', async (event, filePaths) => {
+    const results = [];
+    for (const filepath of filePaths) {
+        try {
+            if (fs.existsSync(filepath)) {
+                // Move to OS trash/recycle bin
+                const moved = shell.moveItemToTrash(filepath);
+                if (moved) {
+                    results.push({ path: filepath, success: true });
+                } else {
+                    results.push({ path: filepath, success: false, error: 'Failed to move to Trash' });
+                }
+            } else {
+                results.push({ path: filepath, success: false, error: 'File not found' });
+            }
+        } catch (err) {
+            results.push({ path: filepath, success: false, error: err.message });
+        }
+    }
+    return results;
 });
 
 /**

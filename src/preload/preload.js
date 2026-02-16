@@ -22,5 +22,11 @@ contextBridge.exposeInMainWorld('api', {
     saveRemovedFilesJson: (data, filename) => ipcRenderer.invoke('save-removed-files-json', data, filename),
 
     // Get home directory
-    getHomeDir: () => ipcRenderer.invoke('get-home-dir')
+    getHomeDir: () => ipcRenderer.invoke('get-home-dir'),
+
+    // Open JSON file dialog
+    openJsonFile: () => ipcRenderer.invoke('open-json-file-dialog'),
+
+    // Delete files in batch (array of file paths)
+    deleteFiles: (filePaths) => ipcRenderer.invoke('delete-files', filePaths)
 });
