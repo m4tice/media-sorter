@@ -1,5 +1,9 @@
 name: Release Electron App
 
+# Allow this workflow to create releases
+permissions:
+  contents: write
+
 on:
   push:
     tags:
@@ -78,6 +82,7 @@ jobs:
             electron-release-windows/*.zip
           draft: false
           prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
