@@ -1,6 +1,8 @@
 const { app, BrowserWindow, ipcMain, dialog, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const { execSync, exec } = require('child_process');
+const os = require('os');
 
 /**
  * Create the application window
@@ -157,81 +159,97 @@ ipcMain.handle('open-json-file-dialog', async () => {
 });
 
 /**
+ * Move a file to trash/recycle bin using platform-specific methods
+ */
+async function moveFileToTrash(filePath) {
+    const platform = process.platform;
+    
+    // Primary method: Use Electron's shell.trashItem() - modern async API
+    try {
+        if (shell && typeof shell.trashItem === 'function') {
+            await shell.trashItem(filePath);
+            console.log('[moveFileToTrash] Successfully moved to trash via shell.trashItem():', filePath);
+            return { success: true };
+        }
+    } catch (err) {
+        console.error('[moveFileToTrash] shell.trashItem() failed:', err.message);
+    }
+
+    // Fallback: Use older shell.moveItemToTrash() for compatibility
+    try {
+        if (shell && typeof shell.moveItemToTrash === 'function') {
+            const moved = shell.moveItemToTrash(filePath);
+            if (moved) {
+                console.log('[moveFileToTrash] Successfully moved to trash via shell.moveItemToTrash():', filePath);
+                return { success: true };
+            }
+        }
+    } catch (err) {
+        console.error('[moveFileToTrash] shell.moveItemToTrash() failed:', err.message);
+    }
+
+    // macOS: use rm with -P flag for secure deletion
+    if (platform === 'darwin') {
+        try {
+            const cmd = `rm -P "${filePath.replace(/"/g, '\\"')}"`;
+            execSync(cmd, { stdio: 'pipe' });
+            console.log('[moveFileToTrash] Safely deleted via rm -P:', filePath);
+            return { success: true };
+        } catch (err) {
+            console.error('[moveFileToTrash] rm -P deletion failed:', err.message);
+        }
+    }
+
+    // Linux: use trash-cli or similar utility if available
+    if (platform === 'linux') {
+        try {
+            const cmd = `trash "${filePath.replace(/"/g, '\\"')}"`;
+            execSync(cmd, { stdio: 'pipe' });
+            console.log('[moveFileToTrash] Deleted via trash-cli:', filePath);
+            return { success: true };
+        } catch (err) {
+            console.error('[moveFileToTrash] trash-cli not available:', err.message);
+        }
+    }
+
+    return { success: false, error: 'No trash method available' };
+}
+
+/**
  * Handle deleting files in batch
- * Uses trash package for cross-platform Recycle/Trash support
+ * Uses Electron's shell.trashItem() to move files to trash/recycle bin
  */
 ipcMain.handle('delete-files', async (event, filePaths) => {
     console.log('[delete-files handler] Starting deletion for', filePaths.length, 'files');
     const results = [];
-    
-    // Dynamic import for ESM package (trash v10+) with proper handling
-    let trash;
-    try {
-        const trashModule = await import('trash');
-        trash = trashModule.default;
-        console.log('[delete-files handler] Trash module imported successfully');
-    } catch (err) {
-        console.error('[delete-files handler] Failed to import trash module:', err.message);
-        // Return error for all files if trash can't be imported
-        return filePaths.map(path => ({
-            path,
-            success: false,
-            error: `Failed to load trash module: ${err.message}`
-        }));
-    }
-    
-    // Normalize paths and filter existing files
-    const existingPaths = [];
-    const pathMap = {}; // Track original -> normalized
-    
+
     for (const originalPath of filePaths) {
         try {
             const normalized = path.normalize(originalPath);
-            console.log('[delete-files handler] Checking file:', originalPath, '-> normalized:', normalized);
-            
-            if (fs.existsSync(normalized)) {
-                console.log('[delete-files handler] File exists:', normalized);
-                existingPaths.push(normalized);
-                pathMap[normalized] = originalPath;
-            } else {
-                console.log('[delete-files handler] File not found:', normalized, '(original:', originalPath, ')');
+            console.log('[delete-files handler] Processing file:', originalPath, '->', normalized);
+
+            // Check if file exists
+            if (!fs.existsSync(normalized)) {
+                console.log('[delete-files handler] File not found:', normalized);
                 results.push({ path: originalPath, success: false, error: 'File not found' });
+                continue;
+            }
+
+            // Use the async trash function
+            const result = await moveFileToTrash(normalized);
+            if (result.success) {
+                console.log('[delete-files handler] Successfully moved to trash:', normalized);
+                results.push({ path: originalPath, success: true });
+            } else {
+                console.error('[delete-files handler] Failed to move to trash:', normalized, result.error);
+                results.push({ path: originalPath, success: false, error: result.error });
             }
         } catch (err) {
-            console.error('[delete-files handler] Error checking file:', originalPath, err.message);
+            console.error('[delete-files handler] Unexpected error for file:', originalPath, err.message);
             results.push({ path: originalPath, success: false, error: err.message });
         }
     }
-    
-    console.log('[delete-files handler] Found', existingPaths.length, 'existing files out of', filePaths.length);
-    
-    // Move all existing files to trash in one call
-    if (existingPaths.length > 0) {
-        try {
-            console.log('[delete-files handler] Attempting to delete files with trash:', existingPaths);
-            console.log('[delete-files handler] Trash module type:', typeof trash);
-            
-            // Call trash with the paths
-            const trashResult = await trash(existingPaths);
-            console.log('[delete-files handler] Successfully deleted files with trash:', trashResult);
-            
-            // All succeeded if no exception thrown
-            for (const normalizedPath of existingPaths) {
-                const originalPath = pathMap[normalizedPath];
-                console.log('[delete-files handler] Marked as success:', originalPath);
-                results.push({ path: originalPath, success: true });
-            }
-        } catch (err) {
-            // If batch fails, report each as failed
-            console.error('[delete-files handler] Trash operation failed:', err.message, err.stack);
-            for (const normalizedPath of existingPaths) {
-                const originalPath = pathMap[normalizedPath];
-                console.error('[delete-files handler] Marked as failed:', originalPath, '-', err.message);
-                results.push({ path: originalPath, success: false, error: err.message });
-            }
-        }
-    }
-    
+
     console.log('[delete-files handler] Final results:', results);
     return results;
 });
