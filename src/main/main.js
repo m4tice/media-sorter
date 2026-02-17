@@ -68,9 +68,14 @@ ipcMain.handle('save-removed-files-json', async (event, data, filename) => {
         const downloadsDir = app.getPath('downloads');
         const targetDir = path.join(downloadsDir, 'MediaSorter');
 
+        console.log('[save-removed-files-json handler] Downloads dir:', downloadsDir);
+        console.log('[save-removed-files-json handler] Target dir:', targetDir);
+
         // Ensure target directory exists
         if (!fs.existsSync(targetDir)) {
+            console.log('[save-removed-files-json handler] Creating target directory...');
             fs.mkdirSync(targetDir, { recursive: true });
+            console.log('[save-removed-files-json handler] Directory created successfully');
         }
 
         const filepath = path.join(targetDir, filename);
@@ -82,7 +87,7 @@ ipcMain.handle('save-removed-files-json', async (event, data, filename) => {
         console.log('[save-removed-files-json handler] JSON saved successfully');
         return { success: true, path: filepath };
     } catch (err) {
-        console.error('[save-removed-files-json handler] Error saving JSON:', err);
+        console.error('[save-removed-files-json handler] Error saving JSON:', err.message, err.stack);
         return { success: false, error: err.message };
     }
 });
@@ -96,9 +101,14 @@ ipcMain.handle('save-debug-log', async (event, logContent, filename) => {
         const downloadsDir = app.getPath('downloads');
         const targetDir = path.join(downloadsDir, 'MediaSorter');
 
+        console.log('[save-debug-log handler] Downloads dir:', downloadsDir);
+        console.log('[save-debug-log handler] Target dir:', targetDir);
+
         // Ensure target directory exists
         if (!fs.existsSync(targetDir)) {
+            console.log('[save-debug-log handler] Creating target directory...');
             fs.mkdirSync(targetDir, { recursive: true });
+            console.log('[save-debug-log handler] Directory created successfully');
         }
 
         const filepath = path.join(targetDir, filename);
@@ -110,7 +120,7 @@ ipcMain.handle('save-debug-log', async (event, logContent, filename) => {
         console.log('[save-debug-log handler] Debug log saved successfully');
         return { success: true, path: filepath };
     } catch (err) {
-        console.error('[save-debug-log handler] Error saving debug log:', err);
+        console.error('[save-debug-log handler] Error saving debug log:', err.message, err.stack);
         return { success: false, error: err.message };
     }
 });
@@ -154,8 +164,8 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
     console.log('[delete-files handler] Starting deletion for', filePaths.length, 'files');
     const results = [];
     
-    // Dynamic import for ESM package
-    const { default: trash } = await import('trash');
+    // Require trash package for CommonJS compatibility with electron-builder
+    const trash = require('trash');
     
     // Normalize paths and filter existing files
     const existingPaths = [];
@@ -186,8 +196,11 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
     if (existingPaths.length > 0) {
         try {
             console.log('[delete-files handler] Attempting to delete files with trash:', existingPaths);
-            await trash(existingPaths);
-            console.log('[delete-files handler] Successfully deleted files with trash');
+            console.log('[delete-files handler] Trash module available:', typeof trash === 'function');
+            
+            // Call trash with the paths
+            const trashResult = await trash(existingPaths, { force: true });
+            console.log('[delete-files handler] Successfully deleted files with trash:', trashResult);
             
             // All succeeded if no exception thrown
             for (const normalizedPath of existingPaths) {
@@ -197,7 +210,7 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
             }
         } catch (err) {
             // If batch fails, report each as failed
-            console.error('[delete-files handler] Trash operation failed:', err.message);
+            console.error('[delete-files handler] Trash operation failed:', err.message, err.stack);
             for (const normalizedPath of existingPaths) {
                 const originalPath = pathMap[normalizedPath];
                 console.error('[delete-files handler] Marked as failed:', originalPath, '-', err.message);
