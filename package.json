@@ -29,6 +29,7 @@
 		"appId": "com.electron.boilerplate",
 		"files": [
 			"src/**",
+			"node_modules/**",
 			"package.json"
 		],
 		"mac": {

@@ -164,8 +164,21 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
     console.log('[delete-files handler] Starting deletion for', filePaths.length, 'files');
     const results = [];
     
-    // Require trash package for CommonJS compatibility with electron-builder
-    const trash = require('trash');
+    // Dynamic import for ESM package (trash v10+) with proper handling
+    let trash;
+    try {
+        const trashModule = await import('trash');
+        trash = trashModule.default;
+        console.log('[delete-files handler] Trash module imported successfully');
+    } catch (err) {
+        console.error('[delete-files handler] Failed to import trash module:', err.message);
+        // Return error for all files if trash can't be imported
+        return filePaths.map(path => ({
+            path,
+            success: false,
+            error: `Failed to load trash module: ${err.message}`
+        }));
+    }
     
     // Normalize paths and filter existing files
     const existingPaths = [];
@@ -196,10 +209,10 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
     if (existingPaths.length > 0) {
         try {
             console.log('[delete-files handler] Attempting to delete files with trash:', existingPaths);
-            console.log('[delete-files handler] Trash module available:', typeof trash === 'function');
+            console.log('[delete-files handler] Trash module type:', typeof trash);
             
             // Call trash with the paths
-            const trashResult = await trash(existingPaths, { force: true });
+            const trashResult = await trash(existingPaths);
             console.log('[delete-files handler] Successfully deleted files with trash:', trashResult);
             
             // All succeeded if no exception thrown
