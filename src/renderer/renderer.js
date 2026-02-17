@@ -107,6 +107,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 showAbout();
             } else if (item.id === 'run-job-menu-item') {
                 runJobFlow();
+            } else if (item.id === 'debug-toggle-menu-item') {
+                toggleDebugMode();
             } else if (item.textContent.trim() === 'Open Folder') {
                 openFolderAndLoadMedia();
             } else {
@@ -115,6 +117,23 @@ document.addEventListener('DOMContentLoaded', () => {
             menuDropdown.classList.remove('show');
             menuDropdown.setAttribute('aria-hidden', 'true');
         });
+    }
+
+    // Debug mode toggle function
+    function toggleDebugMode() {
+        debugMode = !debugMode;
+        const debugBtn = document.getElementById('debug-toggle-menu-item');
+        if (debugBtn) {
+            debugBtn.textContent = debugMode ? 'Debug Mode: ON' : 'Debug Mode: OFF';
+            if (debugMode) {
+                debugBtn.classList.add('debug-on');
+                debugLog = [];
+                addDebugLog('session_started', { folderPath: currentFolderPath });
+            } else {
+                debugBtn.classList.remove('debug-on');
+                addDebugLog('session_ended', { logEntries: debugLog.length });
+            }
+        }
     }
 
     // --- Error/Alert dialog implementation ---
@@ -190,30 +209,70 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             // Step 1: Open file picker for JSON
             const jsonPath = await window.api.openJsonFile();
+            
+            addDebugLog('run_job_json_selected', {
+                jsonPath: jsonPath,
+                timestamp: new Date().toISOString()
+            });
+            
             if (!jsonPath) {
                 console.log('JSON selection cancelled');
+                addDebugLog('run_job_cancelled', {
+                    reason: 'JSON selection cancelled',
+                    timestamp: new Date().toISOString()
+                });
                 return;
             }
 
             // Step 2: Read and validate JSON
             const jsonContent = await readFileAsText(jsonPath);
+            
+            addDebugLog('run_job_json_read', {
+                jsonPath: jsonPath,
+                contentLength: jsonContent.length,
+                timestamp: new Date().toISOString()
+            });
+            
             let jobData;
             try {
                 jobData = JSON.parse(jsonContent);
+                addDebugLog('run_job_json_parsed', {
+                    removedFilesCount: jobData.removedFiles ? jobData.removedFiles.length : 0,
+                    jsonKeys: Object.keys(jobData),
+                    timestamp: new Date().toISOString()
+                });
             } catch (err) {
                 await showErrorDialog('Invalid JSON', `Failed to parse JSON file: ${err.message}`);
+                addDebugLog('run_job_json_parse_error', {
+                    error: err.message,
+                    timestamp: new Date().toISOString()
+                });
                 return;
             }
 
             // Step 3: Validate required fields
             if (!jobData.removedFiles || !Array.isArray(jobData.removedFiles)) {
                 await showErrorDialog('Invalid Job File', 'The JSON file does not contain a valid "removedFiles" array.');
+                addDebugLog('run_job_invalid_format', {
+                    hasRemovedFiles: !!jobData.removedFiles,
+                    isArray: Array.isArray(jobData.removedFiles),
+                    timestamp: new Date().toISOString()
+                });
                 return;
             }
 
             const fileCount = jobData.removedFiles.length;
+            
+            addDebugLog('run_job_validation_passed', {
+                totalFilesToDelete: fileCount,
+                timestamp: new Date().toISOString()
+            });
+            
             if (fileCount === 0) {
                 await showErrorDialog('No Files', 'The job file does not contain any files to remove.');
+                addDebugLog('run_job_no_files', {
+                    timestamp: new Date().toISOString()
+                });
                 return;
             }
 
@@ -231,14 +290,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const normalizedPaths = jobData.removedFiles.map(normalizePath);
+            
+            addDebugLog('run_job_paths_normalized', {
+                originalCount: jobData.removedFiles.length,
+                normalizedCount: normalizedPaths.length,
+                samplePaths: normalizedPaths.slice(0, 3),
+                timestamp: new Date().toISOString()
+            });
 
             // Validate files exist before attempting deletion
             if (window.api && typeof window.api.checkFilesExist === 'function') {
                 const existsResults = await window.api.checkFilesExist(normalizedPaths);
+                
+                addDebugLog('run_job_files_existence_check', {
+                    totalChecked: existsResults.length,
+                    checkResults: existsResults,
+                    timestamp: new Date().toISOString()
+                });
+                
                 const missing = existsResults.filter(r => !r.exists && !r.resolvedExists && !r.altExists);
+                
                 if (missing.length > 0) {
                     const sample = missing.slice(0, 6).map(m => m.path).join('\n');
                     await showErrorDialog('Missing files', `${missing.length} files listed in the job were not found on disk.\nFirst missing files:\n${sample}\n\nAborting job.`);
+                    
+                    addDebugLog('run_job_files_missing', {
+                        totalMissing: missing.length,
+                        missingFiles: missing,
+                        timestamp: new Date().toISOString()
+                    });
                     return;
                 }
             }
@@ -248,6 +328,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error('Error in runJobFlow:', err);
             await showErrorDialog('Error', `An unexpected error occurred: ${err.message}`);
+            
+            addDebugLog('run_job_flow_error', {
+                error: err.message,
+                stack: err.stack,
+                timestamp: new Date().toISOString()
+            });
         }
     }
 
@@ -273,19 +359,61 @@ document.addEventListener('DOMContentLoaded', () => {
         progressTotal.textContent = total;
         progressBackdrop.removeAttribute('hidden');
 
+        addDebugLog('run_job_started', {
+            totalFilesToDelete: total,
+            filePaths: filePaths,
+            timestamp: new Date().toISOString()
+        });
+
         try {
             // Delete files with progress updates
             const results = await window.api.deleteFiles(filePaths);
 
+            addDebugLog('run_job_deletion_results_received', {
+                totalResults: results.length,
+                timestamp: new Date().toISOString()
+            });
+
             let successCount = 0;
+            const failedFiles = [];
+            const successFiles = [];
+            
             results.forEach((result, index) => {
-                if (result.success) successCount++;
+                if (result.success) {
+                    successCount++;
+                    successFiles.push(result.path);
+                } else {
+                    failedFiles.push({ path: result.path, error: result.error });
+                }
                 const percent = ((index + 1) / total) * 100;
                 progressCurrent.textContent = index + 1;
                 progressBar.style.width = percent + '%';
+                
+                // Log each file result
+                addDebugLog('run_job_file_result', {
+                    fileIndex: index + 1,
+                    filePath: result.path,
+                    success: result.success,
+                    error: result.error || null,
+                    timestamp: new Date().toISOString()
+                });
             });
 
             progressBackdrop.setAttribute('hidden', '');
+
+            addDebugLog('run_job_completed', {
+                totalFilesToDelete: total,
+                successCount,
+                failedCount: total - successCount,
+                successFiles: successFiles,
+                failedFiles: failedFiles,
+                timestamp: new Date().toISOString()
+            });
+
+            // Export debug log if debug mode is on
+            if (debugMode) {
+                await exportDebugLog('run_job');
+            }
 
             const failedCount = total - successCount;
             const message = failedCount > 0
@@ -295,6 +423,13 @@ document.addEventListener('DOMContentLoaded', () => {
             await showErrorDialog('Job Complete', message);
         } catch (err) {
             progressBackdrop.setAttribute('hidden', '');
+            
+            addDebugLog('run_job_error', {
+                error: err.message,
+                stack: err.stack,
+                timestamp: new Date().toISOString()
+            });
+
             await showErrorDialog('Error', `Failed to delete files: ${err.message}`);
         }
     }
@@ -345,6 +480,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 const result = await window.api.saveRemovedFilesJson(exportData, filename);
                 if (result.success) {
                     console.log('Exported to:', result.path);
+                    
+                    addDebugLog('session_exported', {
+                        exportFilePath: result.path,
+                        removedCount: removedFiles.length,
+                        totalFiles: mediaFiles.length,
+                        timestamp: new Date().toISOString()
+                    });
+
+                    // Export debug log if debug mode is on
+                    if (debugMode) {
+                        await exportDebugLog('session_end');
+                    }
+
                     hideExportDialog();
                     // Reset for next session
                     removedFiles = [];
@@ -355,9 +503,17 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 } else {
                     console.error('Export failed:', result.error);
+                    addDebugLog('export_error', {
+                        error: result.error,
+                        timestamp: new Date().toISOString()
+                    });
                 }
             } catch (err) {
                 console.error('Error exporting:', err);
+                addDebugLog('export_error', {
+                    error: err.message,
+                    timestamp: new Date().toISOString()
+                });
             }
         });
     }
@@ -389,6 +545,69 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentMediaIndex = 0;
     let removedFiles = []; // Track removed file paths
 
+    // --- Debug Mode Variables ---
+    let debugMode = false;
+    let debugLog = [];
+    const MAX_LOG_ENTRIES = 10000;
+
+    // Debug logging functions
+    function addDebugLog(action, details) {
+        if (!debugMode) return;
+        const timestamp = new Date().toISOString();
+        const logEntry = {
+            timestamp,
+            action,
+            details
+        };
+        debugLog.push(logEntry);
+        // Keep log size manageable
+        if (debugLog.length > MAX_LOG_ENTRIES) {
+            debugLog.shift();
+        }
+        console.log(`[DEBUG] ${action}:`, details);
+    }
+
+    function formatTimestamp(date) {
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+    }
+
+    async function exportDebugLog(action) {
+        if (!debugMode || debugLog.length === 0 || !window.api) {
+            console.warn('Debug log export failed: debug mode not active or no API available');
+            return;
+        }
+
+        const timestamp = formatTimestamp(new Date());
+        const filename = `mediaSorter_log_${action}_${timestamp}.txt`;
+        
+        // Format the log entries into readable text
+        let logContent = `Media Sorter Debug Log - ${action}\n`;
+        logContent += `Generated: ${new Date().toISOString()}\n`;
+        logContent += `Total entries: ${debugLog.length}\n`;
+        logContent += `${'='.repeat(80)}\n\n`;
+
+        debugLog.forEach((entry, index) => {
+            logContent += `[${index + 1}] ${entry.timestamp}\n`;
+            logContent += `Action: ${entry.action}\n`;
+            logContent += `Details: ${JSON.stringify(entry.details, null, 2)}\n`;
+            logContent += `${'-'.repeat(80)}\n`;
+        });
+
+        try {
+            const result = await window.api.saveDebugLog(logContent, filename);
+            if (result.success) {
+                console.log('Debug log exported to:', result.path);
+            } else {
+                console.error('Failed to export debug log:', result.error);
+            }
+        } catch (err) {
+            console.error('Error exporting debug log:', err);
+        }
+    }
+
     async function openFolderAndLoadMedia() {
         if (!window.api || typeof window.api.openFolder !== 'function') {
             console.error('API not available');
@@ -415,9 +634,22 @@ document.addEventListener('DOMContentLoaded', () => {
             // Get media files from that folder
             mediaFiles = await window.api.getMediaFromFolder(folderPath);
             currentMediaIndex = 0;
+            
+            addDebugLog('folder_opened', {
+                folderPath: folderPath,
+                mediaFileCount: mediaFiles.length,
+                timestamp: new Date().toISOString()
+            });
+            
             displayCurrentMediaFile();
         } catch (err) {
             console.error('Error opening folder:', err);
+            
+            addDebugLog('folder_open_error', {
+                error: err.message,
+                timestamp: new Date().toISOString()
+            });
+            
             if (contentCont) {
                 contentCont.innerHTML = '<p style="color: #d32f2f;">Error loading folder</p>';
             }
@@ -486,13 +718,33 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function goToNextMedia() {
         if (mediaFiles.length === 0) return;
+        const previousFile = mediaFiles[currentMediaIndex];
+        
         currentMediaIndex = (currentMediaIndex + 1) % mediaFiles.length;
         
         // Check if we've cycled back to the start (end of cycle)
         if (currentMediaIndex === 0) {
+            addDebugLog('media_kept', {
+                fileName: previousFile.name,
+                filePath: previousFile.path,
+                action: 'next_media',
+                endOfCycle: true,
+                totalReviewedInSession: mediaFiles.length,
+                removedCount: removedFiles.length
+            });
+            
             displayCurrentMediaFile();
             showExportDialog();
         } else {
+            addDebugLog('media_kept', {
+                fileName: previousFile.name,
+                filePath: previousFile.path,
+                action: 'next_media',
+                newIndex: currentMediaIndex,
+                totalFiles: mediaFiles.length,
+                removedCount: removedFiles.length
+            });
+            
             displayCurrentMediaFile();
         }
     }
@@ -501,6 +753,15 @@ document.addEventListener('DOMContentLoaded', () => {
         if (mediaFiles.length === 0) return;
         const currentFile = mediaFiles[currentMediaIndex];
         removedFiles.push(currentFile.path);
+        
+        addDebugLog('media_removed', {
+            fileName: currentFile.name,
+            filePath: currentFile.path,
+            currentIndex: currentMediaIndex,
+            totalFiles: mediaFiles.length,
+            removedCount: removedFiles.length
+        });
+        
         console.log('Removed:', currentFile.path);
         goToNextMedia();
     }
@@ -516,7 +777,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentPath = currentFile.path;
         
         // Remove it from the removedFiles array if it's there
+        const wasRemoved = removedFiles.includes(currentPath);
         removedFiles = removedFiles.filter(path => path !== currentPath);
+        
+        addDebugLog('media_undo', {
+            fileName: currentFile.name,
+            filePath: currentPath,
+            wasMarkedForRemoval: wasRemoved,
+            newIndex: currentMediaIndex,
+            totalFiles: mediaFiles.length,
+            removedCount: removedFiles.length
+        });
         
         console.log('Undo - File removed from tracking:', currentPath);
         displayCurrentMediaFile();

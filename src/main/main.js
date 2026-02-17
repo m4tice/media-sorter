@@ -74,10 +74,43 @@ ipcMain.handle('save-removed-files-json', async (event, data, filename) => {
         }
 
         const filepath = path.join(targetDir, filename);
+        console.log('[save-removed-files-json handler] Saving JSON to:', filepath);
+        console.log('[save-removed-files-json handler] Removed files count:', data.removedCount);
+        
         fs.writeFileSync(filepath, JSON.stringify(data, null, 2), 'utf-8');
+        
+        console.log('[save-removed-files-json handler] JSON saved successfully');
         return { success: true, path: filepath };
     } catch (err) {
-        console.error('Error saving JSON:', err);
+        console.error('[save-removed-files-json handler] Error saving JSON:', err);
+        return { success: false, error: err.message };
+    }
+});
+
+/**
+ * Handle saving debug logs to text file
+ */
+ipcMain.handle('save-debug-log', async (event, logContent, filename) => {
+    try {
+        // Default target folder: user's Downloads/MediaSorter
+        const downloadsDir = app.getPath('downloads');
+        const targetDir = path.join(downloadsDir, 'MediaSorter');
+
+        // Ensure target directory exists
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+
+        const filepath = path.join(targetDir, filename);
+        console.log('[save-debug-log handler] Saving debug log to:', filepath);
+        console.log('[save-debug-log handler] Log content length:', logContent.length);
+        
+        fs.writeFileSync(filepath, logContent, 'utf-8');
+        
+        console.log('[save-debug-log handler] Debug log saved successfully');
+        return { success: true, path: filepath };
+    } catch (err) {
+        console.error('[save-debug-log handler] Error saving debug log:', err);
         return { success: false, error: err.message };
     }
 });
@@ -118,6 +151,7 @@ ipcMain.handle('open-json-file-dialog', async () => {
  * Uses trash package for cross-platform Recycle/Trash support
  */
 ipcMain.handle('delete-files', async (event, filePaths) => {
+    console.log('[delete-files handler] Starting deletion for', filePaths.length, 'files');
     const results = [];
     
     // Dynamic import for ESM package
@@ -130,35 +164,49 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
     for (const originalPath of filePaths) {
         try {
             const normalized = path.normalize(originalPath);
+            console.log('[delete-files handler] Checking file:', originalPath, '-> normalized:', normalized);
+            
             if (fs.existsSync(normalized)) {
+                console.log('[delete-files handler] File exists:', normalized);
                 existingPaths.push(normalized);
                 pathMap[normalized] = originalPath;
             } else {
+                console.log('[delete-files handler] File not found:', normalized, '(original:', originalPath, ')');
                 results.push({ path: originalPath, success: false, error: 'File not found' });
             }
         } catch (err) {
+            console.error('[delete-files handler] Error checking file:', originalPath, err.message);
             results.push({ path: originalPath, success: false, error: err.message });
         }
     }
     
+    console.log('[delete-files handler] Found', existingPaths.length, 'existing files out of', filePaths.length);
+    
     // Move all existing files to trash in one call
     if (existingPaths.length > 0) {
         try {
+            console.log('[delete-files handler] Attempting to delete files with trash:', existingPaths);
             await trash(existingPaths);
+            console.log('[delete-files handler] Successfully deleted files with trash');
+            
             // All succeeded if no exception thrown
             for (const normalizedPath of existingPaths) {
                 const originalPath = pathMap[normalizedPath];
+                console.log('[delete-files handler] Marked as success:', originalPath);
                 results.push({ path: originalPath, success: true });
             }
         } catch (err) {
             // If batch fails, report each as failed
+            console.error('[delete-files handler] Trash operation failed:', err.message);
             for (const normalizedPath of existingPaths) {
                 const originalPath = pathMap[normalizedPath];
+                console.error('[delete-files handler] Marked as failed:', originalPath, '-', err.message);
                 results.push({ path: originalPath, success: false, error: err.message });
             }
         }
     }
     
+    console.log('[delete-files handler] Final results:', results);
     return results;
 });
 
@@ -166,6 +214,7 @@ ipcMain.handle('delete-files', async (event, filePaths) => {
  * Check which files exist on disk
  */
 ipcMain.handle('check-files-exist', async (event, filePaths) => {
+    console.log('[check-files-exist handler] Checking existence of', filePaths.length, 'files');
     const results = [];
     for (const filepath of filePaths) {
         try {
@@ -177,18 +226,29 @@ ipcMain.handle('check-files-exist', async (event, filePaths) => {
             const alt = filepath.replace(/\\/g, '/');
             const altExists = fs.existsSync(alt);
 
-            results.push({
+            const result = {
                 path: filepath,
                 exists,
                 resolved,
                 resolvedExists,
                 alt,
                 altExists
+            };
+            
+            console.log('[check-files-exist handler] File check result:', {
+                path: filepath,
+                exists,
+                resolvedExists,
+                altExists
             });
+            
+            results.push(result);
         } catch (err) {
+            console.error('[check-files-exist handler] Error checking file:', filepath, err.message);
             results.push({ path: filepath, exists: false, error: err.message });
         }
     }
+    console.log('[check-files-exist handler] Total results:', results.length);
     return results;
 });
 
@@ -197,11 +257,16 @@ ipcMain.handle('check-files-exist', async (event, filePaths) => {
  */
 ipcMain.handle('get-media-from-folder', async (event, folderPath) => {
     try {
+        console.log('[get-media-from-folder handler] Loading media from:', folderPath);
+        
         if (!folderPath || !fs.existsSync(folderPath)) {
+            console.log('[get-media-from-folder handler] Folder not found or invalid');
             return [];
         }
 
         const files = fs.readdirSync(folderPath, { withFileTypes: true });
+        console.log('[get-media-from-folder handler] Total files found in folder:', files.length);
+        
         const mediaFiles = files
             .filter(file => {
                 // Only include files (not directories)
@@ -216,9 +281,12 @@ ipcMain.handle('get-media-from-folder', async (event, folderPath) => {
                 ext: path.extname(file.name).toLowerCase()
             }));
 
+        console.log('[get-media-from-folder handler] Media files filtered:', mediaFiles.length);
+        console.log('[get-media-from-folder handler] Media files list:', mediaFiles.map(f => f.name));
+        
         return mediaFiles;
     } catch (err) {
-        console.error('Error reading media files:', err);
+        console.error('[get-media-from-folder handler] Error reading media files:', err);
         return [];
     }
 });

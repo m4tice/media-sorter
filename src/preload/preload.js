@@ -21,6 +21,9 @@ contextBridge.exposeInMainWorld('api', {
     // Save removed files to JSON
     saveRemovedFilesJson: (data, filename) => ipcRenderer.invoke('save-removed-files-json', data, filename),
 
+    // Save debug log to text file
+    saveDebugLog: (logContent, filename) => ipcRenderer.invoke('save-debug-log', logContent, filename),
+
     // Get home directory
     getHomeDir: () => ipcRenderer.invoke('get-home-dir'),
 

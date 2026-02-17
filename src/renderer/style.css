@@ -126,6 +126,28 @@ html, body {
     color: #ffffff;
 }
 
+.menu-divider {
+    height: 1px;
+    background: #a3b1c6;
+    margin: 4px 0;
+    opacity: 0.3;
+}
+
+.debug-toggle-btn {
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.debug-toggle-btn.debug-on {
+    background: #c8e6c9;
+    color: #1b5e20;
+}
+
+.debug-toggle-btn.debug-on:hover {
+    background: #1b5e20;
+    color: #c8e6c9;
+}
+
 #menu-btn {
     margin-left: 0px;
     margin-right: auto;
