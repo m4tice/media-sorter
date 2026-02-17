@@ -32,6 +32,9 @@
 			"node_modules/**",
 			"package.json"
 		],
+		"asarUnpack": [
+			"node_modules/trash/**"
+		],
 		"mac": {
 			"target": [
 				"dmg",
